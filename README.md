@@ -190,7 +190,7 @@ sudo apt-get -y install dbus libdbus-1-dev libdbus-glib-1-2 libdbus-glib-1-dev
     </node>
 
     ```
-* generate the header and source file for this xml using the command: ``
+* generate the header and source file for this xml using the command: `gdbus-codegen --generate-c-code generated_mediaplayer2 ./org_mpris_mediaplayer2.xml`
 
 # References
 * DBUS tutorial: https://dbus.freedesktop.org/doc/dbus-tutorial.html
