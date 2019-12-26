@@ -4,6 +4,7 @@
 #include <gio/gio.h>
 #include <glib.h>
 #include <glib/gprintf.h>
+#include <boost/program_options.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,6 +16,10 @@
 
 // Code  similar to
 // https://github.com/altdesktop/playerctl/blob/master/playerctl/playerctl-player.c
+
+struct PlayerAction {
+    enum X { NONE = 0, PLAY_PAUSE, NEXT, PREV };
+};
 
 #define MPRIS_PREFIX "org.mpris.MediaPlayer2."
 static int list_player_names_on_bus(std::vector<std::string> *players,
@@ -83,7 +88,7 @@ static int list_player_names_on_bus(std::vector<std::string> *players,
 
 // End code from
 
-int send_command_to_player(const std::string &player) {
+int send_command_to_player(const std::string &player, int playerAction) {
     // Create the proxy
 
     GError *error;
@@ -108,8 +113,24 @@ int send_command_to_player(const std::string &player) {
     }
 
     // send play command
-    gboolean ret = org_mpris_media_player2_player_call_play_pause_sync(
-        playerProxy, NULL, &error);
+    gboolean ret = false;
+
+    switch (playerAction) {
+        case PlayerAction::PLAY_PAUSE: {
+            ret = org_mpris_media_player2_player_call_play_pause_sync(
+                playerProxy, NULL, &error);
+        } break;
+        case PlayerAction::NEXT: {
+            ret = org_mpris_media_player2_player_call_next_sync(
+                playerProxy, NULL, &error);
+        } break;
+        case PlayerAction::PREV: {
+            ret = org_mpris_media_player2_player_call_previous_sync(
+                playerProxy, NULL, &error);
+        } break;
+
+        default: { std::cerr << "Invalid option" << std::endl; } break;
+    }
 
     if (error) {
         std::cout << "Error: " << error->message << std::endl;
@@ -125,10 +146,7 @@ int send_command_to_player(const std::string &player) {
     return 0;
 }
 
-int main(int argc, char **argv) {
-    UNUSED(argc);
-    UNUSED(argv);
-
+int run(int playerAction) {
     GError *error;
     error = NULL;
 
@@ -141,7 +159,75 @@ int main(int argc, char **argv) {
     }
 
     for (auto player : players) {
-        send_command_to_player(player);
+        send_command_to_player(player, playerAction);
     }
+    return 0;
+}
+
+void on_age(int age) { std::cout << "On age: " << age << '\n'; }
+
+int parse_commandline(int argc, char **argv, int *playerAction) {
+    *playerAction = PlayerAction::NONE;
+    bool playPause = false;
+    bool next = false;
+    bool prev = false;
+
+    using namespace boost::program_options;
+    try {
+        options_description desc{
+            "Send the following command on all players connected to session "
+            "DBus. You must only specify one of the options"};
+        desc.add_options()("help,h", "Help screen")(
+            "play-pause", bool_switch(&playPause), "Play/Pause")(
+            "next", bool_switch(&next), "Next")(
+            "prev", bool_switch(&prev), "Previous");
+
+        variables_map vm;
+        store(parse_command_line(argc, argv, desc), vm);
+        notify(vm);
+        int numTrue = 0;
+
+        if (playPause && *playerAction == PlayerAction::NONE) {
+            *playerAction = PlayerAction::PLAY_PAUSE;
+            ++numTrue;
+        }
+        if (next && *playerAction == PlayerAction::NONE) {
+            *playerAction = PlayerAction::NEXT;
+            ++numTrue;
+        }
+        if (prev && *playerAction == PlayerAction::NONE) {
+            *playerAction = PlayerAction::PREV;
+            ++numTrue;
+        }
+        if (vm.count("help") || numTrue > 1) {
+            std::cout << desc << std::endl;
+            if (numTrue) {
+                return numTrue;
+            }
+            return 0;
+        }
+
+        // we did not get any command or request for printing of help,
+        // print help anyway and return an error
+        if (numTrue != 1) {
+            std::cout << desc << std::endl;
+            return -1;
+        }
+
+    } catch (const error &ex) {
+        std::cerr << ex.what() << '\n';
+    }
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    int playerAction = PlayerAction::NONE;
+    int rc = 0;
+    rc = parse_commandline(argc, argv, &playerAction);
+    if (rc) return rc;
+    if (playerAction != PlayerAction::NONE) {
+        return run(playerAction);
+    }
+    return 0;
 }
 

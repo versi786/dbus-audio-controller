@@ -4,6 +4,7 @@ sudo apt install -y cmake
 sudo apt install -y libglib2.0-dev
 sudo apt install -y pkg-config
 sudo apt-get -y install dbus libdbus-1-dev libdbus-glib-1-2 libdbus-glib-1-dev
+sudo apt-get install libboost-all-dev
 ```
 
 # Get XML of interface
@@ -200,4 +201,4 @@ sudo apt-get -y install dbus libdbus-1-dev libdbus-glib-1-2 libdbus-glib-1-dev
 * https://dubstepdish.com/index.php/2018/10/21/playerctl-at-version-2-0/
 * https://github.com/altdesktop/playerctl
 * https://gi.readthedocs.io/en/latest/
-
+* DBUS naming: http://0pointer.net/blog/the-new-sd-bus-api-of-systemd.html
