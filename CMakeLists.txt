@@ -35,6 +35,7 @@ link_directories (${GIO-unix_LIBRARY_DIRS})
 
 
 add_executable(dbusAudioController main.cpp generated_mediaplayer2.c)
+target_compile_options(dbusAudioController PRIVATE -Werror -Wall -Wextra -Wno-error=unused-parameter)
 
 add_definitions (${GLIB_CFLAGS_OTHER})
 target_link_libraries (dbusAudioController ${GLIB_LIBRARIES})
