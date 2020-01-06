@@ -4,6 +4,9 @@
 #include <gio/gio.h>
 #include <glib.h>
 #include <glib/gprintf.h>
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <string>
@@ -14,20 +17,19 @@
         (void)(expr); \
     } while (0)
 
-// Code  similar to
-// https://github.com/altdesktop/playerctl/blob/master/playerctl/playerctl-player.c
-
 struct PlayerAction {
     enum X { NONE = 0, PLAY_PAUSE, NEXT, PREV };
 };
 
+namespace logging = boost::log;
+
+// Code  similar to
+// https://github.com/altdesktop/playerctl/blob/master/playerctl/playerctl-player.c
 #define MPRIS_PREFIX "org.mpris.MediaPlayer2."
-static int list_player_names_on_bus(std::vector<std::string> *players,
-                                    GBusType bus_type,
-                                    GError **err) {
+static int list_player_names_on_bus(std::vector<std::string> *players) {
     GError *tmp_error = NULL;
 
-    GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(bus_type,
+    GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION,
                                                       G_DBUS_PROXY_FLAGS_NONE,
                                                       NULL,
                                                       "org.freedesktop.DBus",
@@ -45,12 +47,11 @@ static int list_player_names_on_bus(std::vector<std::string> *players,
             // that there are no names on the bus that is supposed to be at
             // this socket path. But we need a better way of dealing with this
             // case.
-            std::cerr
+            BOOST_LOG_TRIVIAL(error)
                 << "D-Bus socket address not found, unable to list player names"
                 << std::endl;
             return -1;
         }
-        g_propagate_error(err, tmp_error);
         return -2;
     }
 
@@ -58,7 +59,6 @@ static int list_player_names_on_bus(std::vector<std::string> *players,
         proxy, "ListNames", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &tmp_error);
 
     if (tmp_error != NULL) {
-        g_propagate_error(err, tmp_error);
         g_object_unref(proxy);
         return -2;
     }
@@ -74,7 +74,8 @@ static int list_player_names_on_bus(std::vector<std::string> *players,
             //     names[i] + offset, pctl_bus_type_to_source(bus_type));
             const char *player_name = names[i] + offset;
             players->push_back(player_name);
-            std::cout << "found: " << player_name << std::endl;
+            BOOST_LOG_TRIVIAL(debug)
+                << "found player: " << player_name << std::endl;
         }
     }
 
@@ -107,9 +108,9 @@ int send_command_to_player(const std::string &player, int playerAction) {
         &error);
 
     if (error) {
-        std::cout << "Error: " << error->message << std::endl;
-    } else {
-        std::cout << "No error" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << error->message << std::endl;
+        g_object_unref(playerProxy);
+        return -1;
     }
 
     // send play command
@@ -132,45 +133,35 @@ int send_command_to_player(const std::string &player, int playerAction) {
         default: { std::cerr << "Invalid option" << std::endl; } break;
     }
 
-    if (error) {
-        std::cout << "Error: " << error->message << std::endl;
+    if (error || !ret) {
+        BOOST_LOG_TRIVIAL(error) << error->message << std::endl;
+        g_object_unref(playerProxy);
         return -1;
     }
 
-    if (!ret) {
-        return -1;
-    }
-
-    // Cleanup the proxy
     g_object_unref(playerProxy);
     return 0;
 }
 
 int run(int playerAction) {
-    GError *error;
-    error = NULL;
-
-    // List everything that supports the 'org.mpris.MediaPlayer2.player
-    // interface
     std::vector<std::string> players;
-    int rc = list_player_names_on_bus(&players, G_BUS_TYPE_SESSION, &error);
+    int rc = list_player_names_on_bus(&players);
     if (rc != 0) {
         std::cerr << "Failed to list players rc: " << rc << std::endl;
     }
 
     for (auto player : players) {
-        send_command_to_player(player, playerAction);
+        rc |= send_command_to_player(player, playerAction);
     }
-    return 0;
+    return rc;
 }
-
-void on_age(int age) { std::cout << "On age: " << age << '\n'; }
 
 int parse_commandline(int argc, char **argv, int *playerAction) {
     *playerAction = PlayerAction::NONE;
     bool playPause = false;
     bool next = false;
     bool prev = false;
+    bool debug = false;
 
     using namespace boost::program_options;
     try {
@@ -180,7 +171,8 @@ int parse_commandline(int argc, char **argv, int *playerAction) {
         desc.add_options()("help,h", "Help screen")(
             "play-pause", bool_switch(&playPause), "Play/Pause")(
             "next", bool_switch(&next), "Next")(
-            "prev", bool_switch(&prev), "Previous");
+            "prev", bool_switch(&prev), "Previous")(
+            "debug", bool_switch(&debug), "Enable debug logging");
 
         variables_map vm;
         store(parse_command_line(argc, argv, desc), vm);
@@ -212,6 +204,15 @@ int parse_commandline(int argc, char **argv, int *playerAction) {
         if (numTrue != 1) {
             std::cout << desc << std::endl;
             return -1;
+        }
+
+        // set log level
+        if (debug) {
+            logging::core::get()->set_filter(logging::trivial::severity >=
+                                             logging::trivial::debug);
+        } else {
+            logging::core::get()->set_filter(logging::trivial::severity >=
+                                             logging::trivial::info);
         }
 
     } catch (const error &ex) {

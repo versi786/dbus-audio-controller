@@ -33,7 +33,8 @@ PKG_CHECK_MODULES(GIO-unix REQUIRED gio-unix-2.0)
 include_directories (${GIO-unix_INCLUDE_DIRS})
 link_directories (${GIO-unix_LIBRARY_DIRS})
 
-FIND_PACKAGE(Boost 1.65 REQUIRED COMPONENTS program_options)
+SET(Boost_USE_STATIC_LIBS ON)
+FIND_PACKAGE(Boost 1.65 REQUIRED COMPONENTS program_options log)
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
 

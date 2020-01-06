@@ -202,3 +202,4 @@ sudo apt-get install libboost-all-dev
 * https://github.com/altdesktop/playerctl
 * https://gi.readthedocs.io/en/latest/
 * DBUS naming: http://0pointer.net/blog/the-new-sd-bus-api-of-systemd.html
+* Using dbus public api: https://github.com/makercrew/dbus-sample
