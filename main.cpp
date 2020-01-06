@@ -29,14 +29,10 @@ namespace logging = boost::log;
 static int list_player_names_on_bus(std::vector<std::string> *players) {
     GError *tmp_error = NULL;
 
-    GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION,
-                                                      G_DBUS_PROXY_FLAGS_NONE,
-                                                      NULL,
-                                                      "org.freedesktop.DBus",
-                                                      "/org/freedesktop/DBus",
-                                                      "org.freedesktop.DBus",
-                                                      NULL,
-                                                      &tmp_error);
+    GDBusProxy *proxy = g_dbus_proxy_new_for_bus_sync(
+        G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_NONE, NULL,
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+        NULL, &tmp_error);
 
     if (tmp_error != NULL) {
         if (tmp_error->domain == G_IO_ERROR &&
@@ -70,8 +66,6 @@ static int list_player_names_on_bus(std::vector<std::string> *players) {
     size_t offset = strlen(MPRIS_PREFIX);
     for (gsize i = 0; i < reply_count; i += 1) {
         if (g_str_has_prefix(names[i], MPRIS_PREFIX)) {
-            // PlayerctlPlayerName *player_name = pctl_player_name_new(
-            //     names[i] + offset, pctl_bus_type_to_source(bus_type));
             const char *player_name = names[i] + offset;
             players->push_back(player_name);
             BOOST_LOG_TRIVIAL(debug)
@@ -100,12 +94,8 @@ int send_command_to_player(const std::string &player, int playerAction) {
 
     OrgMprisMediaPlayer2Player *playerProxy;
     playerProxy = org_mpris_media_player2_player_proxy_new_for_bus_sync(
-        G_BUS_TYPE_SESSION,
-        G_DBUS_PROXY_FLAGS_NONE,
-        service.c_str(),
-        "/org/mpris/MediaPlayer2",
-        NULL,
-        &error);
+        G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_NONE, service.c_str(),
+        "/org/mpris/MediaPlayer2", NULL, &error);
 
     if (error) {
         BOOST_LOG_TRIVIAL(error) << error->message << std::endl;
@@ -122,8 +112,8 @@ int send_command_to_player(const std::string &player, int playerAction) {
                 playerProxy, NULL, &error);
         } break;
         case PlayerAction::NEXT: {
-            ret = org_mpris_media_player2_player_call_next_sync(
-                playerProxy, NULL, &error);
+            ret = org_mpris_media_player2_player_call_next_sync(playerProxy,
+                                                                NULL, &error);
         } break;
         case PlayerAction::PREV: {
             ret = org_mpris_media_player2_player_call_previous_sync(
@@ -170,8 +160,8 @@ int parse_commandline(int argc, char **argv, int *playerAction) {
             "DBus. You must only specify one of the options"};
         desc.add_options()("help,h", "Help screen")(
             "play-pause", bool_switch(&playPause), "Play/Pause")(
-            "next", bool_switch(&next), "Next")(
-            "prev", bool_switch(&prev), "Previous")(
+            "next", bool_switch(&next), "Next")("prev", bool_switch(&prev),
+                                                "Previous")(
             "debug", bool_switch(&debug), "Enable debug logging");
 
         variables_map vm;
