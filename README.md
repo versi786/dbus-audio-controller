@@ -5,6 +5,7 @@ sudo apt install -y libglib2.0-dev
 sudo apt install -y pkg-config
 sudo apt-get -y install dbus libdbus-1-dev libdbus-glib-1-2 libdbus-glib-1-dev
 sudo apt-get install libboost-all-dev
+sudo apt-get install -y libboost-all-dev
 ```
 
 # Get XML of interface
